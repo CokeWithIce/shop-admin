@@ -1,13 +1,18 @@
 import axiosH from "~/axiosHelper.js";
-export function getNoticeList(page){
-    return axiosH.get(`/admin/notice/${page}`)
+export function getCouponList(page){
+    return axiosH.get(`/admin/coupon/${page}`)
 }
-export function createNotice(data){
-    return axiosH.post(`/admin/notice`,data)
+export function createCoupon(data){
+    return axiosH.post(`/admin/coupon`,data)
 }
-export function updateNotice(id,data){
-    return axiosH.post(`/admin/notice/${id}`,data)
+export function updateCoupon(id,data){
+    return axiosH.post(`/admin/coupon/${id}`,data)
 }
-export function deleteNotice(id){
-    return axiosH.post(`/admin/notice/${id}/delete`,)
+export function deleteCoupon(id){
+    return axiosH.post(`/admin/coupon/${id}/delete`,)
+}
+export function updateCouponStatus(id){
+    return axiosH.post(`/admin/coupon/${id}/update_status`,{
+        status:0
+    })
 }

@@ -1,13 +1,6 @@
 <template>
     <div class="f-tag-list" :style="{left:$store.state.asideWidth}">
-        <el-tabs
-                v-model="activeTab"
-                type="card"
-                class="demo-tabs flex-1"
-                style="min-width:100px"
-                @tab-change="changeTab"
-                @tab-remove="removeTab"
-        >
+        <el-tabs v-model="activeName" type="card" class="demo-tabs flex-1" style="min-width:100px" @tab-remove="removeTab" @tab-change="changeTab">
             <template #add-icon>
                 <el-icon><Select/></el-icon>
             </template>
@@ -39,80 +32,15 @@
   <div style="height:44px;"></div>
 </template>
 <script setup>
-import {ref} from 'vue'
-import {Select} from '@element-plus/icons-vue'
-import {useRouter,useRoute,onBeforeRouteUpdate} from"vue-router";
-import { useCookies } from '@vueuse/integrations/useCookies'
-const cookie=useCookies();
-const route =useRoute();
-const router = useRouter();
-const activeTab = ref(route.fullPath);
-const tabList = ref([
-    {
-        title: '后台首页',
-        path:'/'
-    },{
-        title:'商城管理',
-        path:'/goods/list'
-    }
-])
-const addTab=(tab)=>{
-    let noTab=tabList.value.findIndex(t=>t.path==tab.path)==-1;
-    if(noTab){
-        tabList.value.push(tab)
-    }
-    cookie.set("tabList",tabList.value)
-}
-
-onBeforeRouteUpdate((to,from)=>{
-    activeTab.value=to.path;
-    addTab({
-        title:to.meta.title,
-        path:to.path,
-    })
-})
-const changeTab=(t)=>{
-    alert(233);
-    // activeTab.value=t;
-    router.push(t);
-}
-const removeTab=(t)=>{
-    let tabs=tabList.value;
-    let a=activeTab.value;
-    if(a==t){
-        tabs.forEach((tab,index)=>{
-            if(tab.path==t){
-                const nextTab=tabs[index+1]?tabs[index+1]:tabs[index-1];
-                if(nextTab){
-                    a=nextTab.path;
-                }
-            }
-        })
-    }
-    activeTab.value=a;
-    tabList.value=tabList.value.filter(tab=>tab.path!=t);
-    cookie.set("tabList",tabList.value);
-}
-const handleClose = (c)=>{
-    if(c=="clearAll"){
-        activeTab.value='/';
-        tabList.value=[{
-            title: '后台首页',
-            path:'/'
-        }]
-    }else if(c=="clearOther"){
-        tabList.value=tabList.value.filter(tab=>tab.path=="/"||tab.path==activeTab.value);
-    }
-    cookie.set("tabList",tabList.value);
-}
-(function initTabList(){
-    let tbs=cookie.get("tabList");
-    if(tbs){
-        tabList.value=tbs;
-    }
-})();
-
-
+import{useTabList} from "~/composables/useTabList.js";
+const {
+    activeName,
+    tabList,
+    router,
+    changeTab,
+    removeTab,
+    handleClose
+}=useTabList();
 </script>
 <style scoped>
 .f-tag-list {

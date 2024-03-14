@@ -1,56 +1,50 @@
 <template>
-    <el-drawer
-            title="设置轮播图"
-            v-model="dialogVisible"
-            direction="rtl"
-            size="50%"
-            destroy-on-close="true"
-
-    >
-        <el-form v-model="form" :rules="rules" label-width="80px" :inline="false" size="normal">
-            <el-form-item label="轮播图" prop="banners">
-                <ChooseImage :limit="9" v-model="form.banners"></ChooseImage>
-            </el-form-item>
+    <FormDrawer ref="formDrawerRef" title="设置商品详情" @submit="submit" destroy-only-close>
+        <el-form v-model="form">
             <el-form-item>
-                <el-button :loading="loading" type="primary" @click="submit">提交</el-button>
+                <Editor v-model="form.content">
+
+                </Editor>
             </el-form-item>
         </el-form>
-    </el-drawer>
+    </FormDrawer>
 </template>
 <script setup>
 import {ref, reactive} from "vue";
-import ChooseImage from "~/components/ChooseImage.vue";
-import {readGoods, setGoodsBanner} from "~/api/goods.js";
+import {readGoods, updateGoods} from "~/api/goods.js";
 import {toast} from "~/composables/util.js";
+import FormDrawer from "~/components/FormDrawer.vue";
+import Editor from "~/components/Editor.vue";
 
 const loading = ref(false);
-const dialogVisible = ref(false);
+const formDrawerRef = ref(null);
 const form = reactive({
-    banners: []
+    content:"",
 })
 const goodsId = ref(0);
 const emit=defineEmits(['reloadData'])
 
 function open(row) {
-    row.bannersLoading=true;
+    row.contentLoading=true;
     goodsId.value = row.id;
     readGoods(goodsId.value).then((res) => {
-        form.banners = res.goodsBanner.map(o => o.url);
-        dialogVisible.value = true;
+        form.content=res.content
+        formDrawerRef.value.open();
     }).finally(() => {
-        row.bannersLoading=false;
+        row.contentLoading=false;
     })
 
 }
 
 function submit() {
+    formDrawerRef.value.showLoading();
     loading.value = true;
-    setGoodsBanner(goodsId.value, form).then((res) => {
-        toast("设置轮播图成功");
-        dialogVisible.value = false;
+    updateGoods(goodsId.value, form).then((res) => {
+        toast("设置商品详情图成功");
+        formDrawerRef.value.close();
         emit("reloadData");
     }).finally(() => {
-        loading.value = false;
+        formDrawerRef.value.hideLoading();
     })
 }
 

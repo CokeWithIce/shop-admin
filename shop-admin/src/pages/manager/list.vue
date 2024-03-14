@@ -1,43 +1,79 @@
 <template>
     <el-card v-loading="loading" shadow="never" class="border-0">
-        <div class="flex items-center justify-between mb-4">
-            <el-button @click="handleCreate" type="primary" size="small">新增</el-button>
-            <el-tooltip
-                    effect="dark"
-                    content="刷新数据"
-                    placement="top"
-            >
-                <el-button @click="getData" class="border-0">
-                    <el-icon :size="20">
-                        <Refresh/>
-                    </el-icon>
-                </el-button>
-            </el-tooltip>
-        </div>
+        <Search :model="searchForm" @search="getData" @reset="resetSearchForm">
+            <SearchItem label="关键词">
+                <el-input placeholder="管理员昵称" clearable v-model="searchForm.keyword"></el-input>
+            </SearchItem>
+        </Search>
+        <ListHeader @create="handleCreate" @refresh="getData" />
         <el-table :data="tableData" stripe style="width: 100%">
-            <el-table-column prop="title" label="标题" width="180"/>
-            <el-table-column prop="content" label="内容" width="180"/>
-            <el-table-column prop="create_time" label="创建时间"/>
-            <el-table-column #default="scope" label="操作">
-                <el-button @click="handleEdit(scope.row)" type="primary" size="default" text >修改</el-button>
-                <el-popconfirm @confirm="handleDelete(scope.row.id)" title="是否要删除该公告" confirm-button-text="确认"
-                               cancel-button-text="取消">
-                    <template #reference>
-                        <el-button type="primary" size="default" text @click="">删除</el-button>
-                    </template>
-                </el-popconfirm>
+            <el-table-column label="管理员" width="200">
+                <template #default="{row}">
+                    <div class="flex items-center">
+                        <el-avatar :size="40" :src="row.avatar" >
+                            <img src/>
+                        </el-avatar>
+                        <div class="ml-3">
+                            <h6>{{row.username}}</h6>
+                            <small>ID:{{row.id}}</small>
+                        </div>
+                    </div>
+                </template>
+            </el-table-column>
+            <el-table-column label="所属管理员">
+                <template #default="{row}">
+                    {{row.role?.name||""}}
+                </template>
+            </el-table-column>
+            <el-table-column prop="create_time" width="120" label="状态">
+                <template #default="{row}">
+                    <el-switch :disabled="row.super==1" :loadig="row.statusLoading" @change="handleStatusChange($event,row)" :model-value="row.status" :active-value="1" :inactive-value="0">
+
+                    </el-switch>
+                </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center">
+                <template #default="scope">
+                    <small v-if="scope.row.super==1" class="text-sm text-gray-500">暂无操作</small>
+                    <div v-else>
+                        <el-button @click="handleEdit(scope.row)" type="primary" size="default" text >修改</el-button>
+                        <el-popconfirm @confirm="handleDelete(scope.row.id)" title="是否要删除该管理员" confirm-button-text="确认"
+                                       cancel-button-text="取消">
+                            <template #reference>
+                                <el-button type="primary" size="default" text @click="">删除</el-button>
+                            </template>
+                        </el-popconfirm>
+                    </div>
+                </template>
             </el-table-column>
         </el-table>
         <div class="flex items-center justify-center mt-5">
-        <el-pagination background layout="prev,pager, next" :total="total" :current-page="currentPage" :page-size="limit" @current-change="getData"/>
+            <el-pagination background layout="prev,pager, next" :total="total" v-model:current-page="currentPage" :page-size="limit" @update:current-page="getData"/>
         </div>
         <FormDrawer ref="formDrawerRef" :title="drawerTitle" @submit="handleSubmit">
-            <el-form :model="form" ref="formRef" :rules="rules" label-width="80px;">
-                <el-form-item label="公告标题" prop="title">
-                    <el-input placeholder="公告标题" v-model="form.title"></el-input>
+            <el-form :model="form" ref="formRef" :rules="rules" label-width="80px">
+                <el-form-item label="用户名" prop="username">
+                    <el-input placeholder="用户名" v-model="form.username"></el-input>
                 </el-form-item>
-                <el-form-item label="公告内容" prop="content">
-                    <el-input type="textarea" :rows="7" placeholder="公告内容"  v-model="form.content"></el-input>
+                <el-form-item label="密码" prop="password">
+                    <el-input placeholder="密码"  v-model="form.password"></el-input>
+                </el-form-item>
+                <el-form-item label="头像" prop="avatar">
+                    <ChooseImage v-model="form.avatar"></ChooseImage>
+                </el-form-item>
+                <el-form-item label="所属角色" prop="role_id">
+                    <el-select placeholder="选择所属角色" v-model="form.role_id">
+                        <el-option
+                            v-for="item in roles"
+                            :key="item.id"
+                            :label="item.name"
+                            :value="item.id"
+                        >
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="状态" prop="status">
+                    <el-switch v-model="form.status" :active-value="1" :inactive-value="0"></el-switch>
                 </el-form-item>
             </el-form>
         </FormDrawer>
@@ -46,107 +82,89 @@
 </template>
 <script setup>
 import {ref,reactive,computed} from "vue";
-import {getNoticeList,createNotice,updateNotice,deleteNotice} from "~/api/notice.js";
+import {getManagerList,updateManagerStatus,createManager,updateManager,deleteManager} from "~/api/manager.js";
 import {toast} from "~/composables/util.js";
 import FormDrawer from "~/components/FormDrawer.vue";
+import ChooseImage from "~/components/ChooseImage.vue";
+import {useInitTable,useInitForm} from "~/composables/useCommon.js"
+import ListHeader from "~/components/ListHeader.vue";
+import Search from "~/components/Search.vue";
+import SearchItem from "~/components/SearchItem.vue";
+const roles=ref([])
+const {
+    searchForm,
+    tableData,
+    currentPage,
+    total,
+    limit,
+    getData,
+    loading,
+    resetSearchForm,
+    handleStatusChange,
+    handleDelete
 
-const tableData = ref([])
-// 分页字段
-const currentPage = ref(1);
-const total = ref(0);
-const limit = ref(10);
-const loading = ref(false);
-
-//表单抽屉组件的字段
-const formDrawerRef=ref(null);
-const formRef=ref(null);
-const form=reactive({
-    title:"",
-    content:""
-})
-const rules= {
-    title:[
-        {required: true, message: '公告标题不能为空', trigger: 'blur'},
-    ],
-    content:[
-        {required: true, message: '公告内容不能为空', trigger: 'blur'},
-    ]
-}
-
-//标识
-const editId=ref(0);
-const drawerTitle=computed(()=>{
-    return editId.value==0?"新增":"修改"
-})
-function getData() {
-    loading.value = true;
-    getNoticeList(currentPage.value).then((res) => {
-        console.log(res);
-        tableData.value = res.list;
-        total.value = res.totalCount;
-    }).catch((e) => {
-        toast("获取列表失败")
-    }).finally(() => {
-        loading.value = false;
-    })
-}
-
-function handleSubmit(){
-    formRef.value.validate((valid)=>{
-        if(!valid)return
-        formDrawerRef.value.showLoading();
-        let fun;
-        if(editId.value==0){
-            fun=createNotice(form);
-        }else{
-            fun=updateNotice(editId.value,form)
-        }
-        fun.then((res)=>{
-            toast(drawerTitle.value+"成功");
-            getData(editId?false:1);
-            formDrawerRef.value.close();
-        }).catch((e) => {
-            toast(drawerTitle.value+"列表失败","error")
-        }).finally(() => {
-            formDrawerRef.value.hideLoading();
+} = useInitTable({
+    "getList":getManagerList,
+    onGetListSuccess:(res)=>{
+        tableData.value=res.list.map(o=>{
+            o.statusLoading=false;
+            return o;
         })
-    })
-}
-function handleCreate(){
-    editId.value=0;
-    resetForm({
-        title:"",
-        content:""
-    });
-    formDrawerRef.value.open();
-}
-function handleDelete(id){
-    loading.value=true;
-    deleteNotice(id).then((res)=>{
-        toast("删除成功");
-        getData();
-    }).catch((e) => {
-        toast("删除失败")
-    }).finally(() => {
-        loading.value=false;
-    })
-}
-function handleEdit(row){
-    alert(2)
-    resetForm(row);
-    editId.value=row.id;
-    formDrawerRef.value.open();
-}
-function resetForm(row=false){
-    if(formRef.value){
-        formRef.value.clearValidate();
-    }
-    if(row){
-        for(const key in form){
-            form[key]=row[key];
+        total.value=res.totalCount;
+        roles.value=res.roles;
+    },
+    "searchForm":reactive({
+        keyword:""
+    }),
+    delete:deleteManager,
+    updateStatus:updateManagerStatus
+});
+const {
+    formDrawerRef,
+    formRef,
+    form,
+    rules,
+    editId,
+    drawerTitle,
+    handleSubmit,
+    resetForm,
+    handleCreate,
+    handleEdit,
+}=useInitForm(
+    {
+        getData,
+        update : updateManager,
+        create: createManager,
+        form:reactive({
+            username:"",
+            password:"",
+            role_id:"",
+            status:1,
+            avatar:""
+        }),
+        rules:{
+            username:[
+                {required: true, message: '用户名不能为空', trigger: 'blur'},
+            ],
+            password:[
+                {required: true, message: '密码不能为空', trigger: 'blur'},
+            ]
+            ,
+            role_id:[
+                {required: true, message: '角色必选', trigger: 'blur'},
+            ]
         }
+
     }
-}
+);
+
+
+
+
+
+
+
+
 getData();
 </script>
 <style scoped>
